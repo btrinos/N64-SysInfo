@@ -327,10 +327,10 @@ void draw_cpu_tab(display_context_t disp, uint32_t prid, uint32_t memory_mb) {
     graphics_draw_text(disp, 15, y, "Cache");
     y += line_height + 2;
     
-    draw_label_value(disp, 20, y, "L1 Data", "16 KBytes");
+    draw_label_value(disp, 20, y, "L1 Data", "16 KB");
     y += line_height;
-    
-    draw_label_value(disp, 20, y, "L1 Instruction", "16 KBytes");
+
+    draw_label_value(disp, 20, y, "L1 Instruction", "16 KB");
     y += line_height;
     
     y += 3;
@@ -361,7 +361,7 @@ void draw_memory_tab(display_context_t disp, uint32_t memory_mb) {
     draw_label_value(disp, 20, y, "Type", "Rambus DRAM");
     y += line_height;
     
-    snprintf(buffer, sizeof(buffer), "%u MBytes", memory_mb);
+    snprintf(buffer, sizeof(buffer), "%u MB", memory_mb);
     draw_label_value(disp, 20, y, "Size", buffer);
     y += line_height;
     
