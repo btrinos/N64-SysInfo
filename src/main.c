@@ -245,10 +245,13 @@ void calculate_fps(void) {
 // Update all measurements (called every frame)
 void update_measurements(void) {
     measurements.frames_counted++;
-    
+
     measure_cpu_frequency_continuous();
     measure_video_scanline();
-    calculate_fps();
+
+    if (measurements.frames_counted % 60 == 0) {
+        calculate_fps();
+    }
     
     // Less frequent measurements
     if (measurements.frames_counted % 30 == 0) {
