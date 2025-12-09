@@ -88,9 +88,9 @@ uint32_t detect_memory_size(void) {
     return get_memory_size() / (1024 * 1024);
 }
 
-// Get TV type
-const char* get_tv_type(void) {
-    switch(get_tv_type_enum()) {
+// Get TV type as human readable string
+const char* get_tv_type_string(void) {
+    switch(get_tv_type()) {
         case TV_PAL: return "PAL";
         case TV_NTSC: return "NTSC";
         case TV_MPAL: return "MPAL";
@@ -99,7 +99,7 @@ const char* get_tv_type(void) {
 }
 
 float get_tv_refresh_rate(void) {
-    switch(get_tv_type_enum()) {
+    switch(get_tv_type()) {
         case TV_PAL: return 50.0f;
         case TV_NTSC: return 60.0f;
         case TV_MPAL: return 60.0f;
@@ -476,7 +476,7 @@ void draw_video_tab(display_context_t disp) {
     graphics_draw_text(disp, 15, y, "Video Interface");
     y += line_height + 2;
     
-    snprintf(buffer, sizeof(buffer), "%s", get_tv_type());
+    snprintf(buffer, sizeof(buffer), "%s", get_tv_type_string());
     draw_label_value(disp, 20, y, "TV System", buffer);
     y += line_height;
     
