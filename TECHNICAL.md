@@ -154,22 +154,26 @@ N64 is big-endian:
 ## Update Loop
 
 ```c
-while (running) {
-    // Increment frame counter
+void update_measurements(void) {
     measurements.frames_counted++;
-    
-    // Every frame measurements
-    measure_cpu_frequency_continuous();  // Actually updates every 5
+
+    measure_cpu_frequency_continuous();  // Updates every 5 frames internally
     measure_video_scanline();            // Updates every frame
-    
-    // Periodic measurements
+
+    calculate_fps();                     // Updates every 60 frames internally
+
+    // Less frequent measurements
     if (measurements.frames_counted % 30 == 0) {
         measure_memory_bandwidth();
     }
-    if (measurements.frames_counted % 60 == 0) {
-        calculate_fps();
-    }
-    
+}
+
+while (running) {
+    update_measurements();
+
+    // Handle controller input
+    // ...
+
     // Render current tab
     render_display();
 }

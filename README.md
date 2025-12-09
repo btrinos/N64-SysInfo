@@ -140,12 +140,18 @@ All measurements update continuously during runtime - values change dynamically 
 ## Architecture
 
 ```
-n64-sysinfo/
+N64-SysInfo/
 ├── src/
-│   └── main.c          # Main program (603 lines)
-├── Makefile            # Build configuration
-├── build.sh            # Build automation
-└── README.md           # This file
+│   ├── main.c              # Main program (~600 lines)
+│   ├── cpu_revision.c      # CPU revision decoder
+│   └── cpu_revision.h      # CPU revision header
+├── tests/
+│   └── get_cpu_revision_test.c  # Unit tests (host)
+├── Makefile                # Build configuration
+├── build.sh                # Build automation script
+├── README.md               # This file
+├── TECHNICAL.md            # Technical documentation
+└── LICENSE                 # MIT License
 ```
 
 ## Compatibility

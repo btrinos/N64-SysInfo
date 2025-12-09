@@ -254,7 +254,7 @@ void draw_label_value(display_context_t disp, int x, int y, const char* label, c
 }
 
 // Draw CPU tab
-void draw_cpu_tab(display_context_t disp, uint32_t prid, uint32_t memory_mb) {
+void draw_cpu_tab(display_context_t disp, uint32_t prid) {
     int y = 50;
     int line_height = 11;
     char buffer[128];
@@ -576,7 +576,7 @@ int main(void) {
         // Draw current tab content
         switch(current_tab) {
             case TAB_CPU:
-                draw_cpu_tab(disp, prid, memory_mb);
+                draw_cpu_tab(disp, prid);
                 break;
             case TAB_MEMORY:
                 draw_memory_tab(disp, memory_mb);
@@ -586,6 +586,9 @@ int main(void) {
                 break;
             case TAB_VIDEO:
                 draw_video_tab(disp);
+                break;
+            case TAB_COUNT:
+                // Not a real tab, just for counting
                 break;
         }
         
