@@ -68,6 +68,14 @@ make
 # Output: n64-sysinfo.z64
 ```
 
+### Host Unit Tests
+
+Run the CPU revision decoder test on a host machine (no libdragon required):
+
+```bash
+make test
+```
+
 ## Running
 
 ### Emulators
