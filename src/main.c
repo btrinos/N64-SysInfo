@@ -1,28 +1,13 @@
 #include <libdragon.h>
 #include <stdio.h>
-#include <string.h>
-#include <math.h>
 #include <stdint.h>
 
 #include "cpu_revision.h"
 
 // Memory map addresses for N64 hardware info
 #define MI_VERSION_REG  0xA4300004
-#define MI_INTR_REG     0xA4300008
 #define VI_CURRENT_REG  0xA4400004
-#define VI_STATUS_REG   0xA4400000
-#define AI_DRAM_ADDR    0xA4500000
-#define AI_STATUS       0xA450000C
-#define PI_STATUS_REG   0xA4600010
-#define PI_BSD_DOM1_LAT 0xA4600014
-#define SI_STATUS_REG   0xA4800018
-#define RI_MODE_REG     0xA4700000
 #define RI_CONFIG_REG   0xA4700004
-#define RI_SELECT_REG   0xA470000C
-
-// COP0 registers
-#define C0_COUNT 9
-#define C0_PRID  15
 
 // Tab system
 typedef enum {
@@ -139,13 +124,13 @@ void measure_cpu_frequency_continuous(void) {
     // Update every 5 frames for accuracy
     if (frames_elapsed >= 5) {
         uint32_t count_delta = current_count - measure_start_count;
-        uint32_t cpu_cycles = count_delta * 2; // COUNT is half CPU speed
+        uint64_t cpu_cycles = (uint64_t)count_delta * 2; // COUNT is half CPU speed
         
         float frame_rate = get_tv_refresh_rate();
         float cpu_freq = ((float)cpu_cycles / (float)frames_elapsed) * frame_rate / 1000000.0f;
         
         measurements.cpu_freq_current = cpu_freq;
-        measurements.cpu_cycles_per_frame = cpu_cycles / frames_elapsed;
+        measurements.cpu_cycles_per_frame = (uint32_t)(cpu_cycles / frames_elapsed);
         
         // Track min/max
         if (measurements.cpu_freq_min == 0 || cpu_freq < measurements.cpu_freq_min) {
@@ -176,8 +161,10 @@ void measure_memory_bandwidth(void) {
     static uint32_t dst_buffer[BW_TEST_SIZE / 4] __attribute__((aligned(16)));
     
     // Use uncached addresses to bypass cache
-    volatile uint32_t *src = (volatile uint32_t *)((uintptr_t)src_buffer | 0x20000000);
-    volatile uint32_t *dst = (volatile uint32_t *)((uintptr_t)dst_buffer | 0x20000000);
+    uintptr_t src_phys = ((uintptr_t)src_buffer & 0x1FFFFFFF) | 0xA0000000;
+    uintptr_t dst_phys = ((uintptr_t)dst_buffer & 0x1FFFFFFF) | 0xA0000000;
+    volatile uint32_t *src = (volatile uint32_t *)src_phys;
+    volatile uint32_t *dst = (volatile uint32_t *)dst_phys;
     
     // Initialize source buffer
     for (int i = 0; i < BW_TEST_SIZE / 4; i++) {
@@ -196,7 +183,7 @@ void measure_memory_bandwidth(void) {
     }
     
     uint32_t count_end = read_c0_count();
-    uint32_t cycles = (count_end - count_start) * 2;
+    uint64_t cycles = (uint64_t)(count_end - count_start) * 2;
     
     // Calculate bandwidth: bytes / (cycles / CPU_freq)
     if (measurements.cpu_freq_current > 0) {
@@ -232,7 +219,7 @@ void calculate_fps(void) {
     if (frames_elapsed >= 60) {
         uint32_t current_count = read_c0_count();
         uint32_t count_delta = current_count - last_fps_count;
-        uint32_t cpu_cycles = count_delta * 2;
+        uint64_t cpu_cycles = (uint64_t)count_delta * 2;
 
         if (measurements.cpu_freq_current > 0 && frames_elapsed > 0) {
             float time_seconds = (float)cpu_cycles / (measurements.cpu_freq_current * 1000000.0f);
@@ -251,9 +238,7 @@ void update_measurements(void) {
     measure_cpu_frequency_continuous();
     measure_video_scanline();
 
-    if (measurements.frames_counted % 60 == 0) {
-        calculate_fps();
-    }
+    calculate_fps();
     
     // Less frequent measurements
     if (measurements.frames_counted % 30 == 0) {
@@ -550,10 +535,10 @@ int main(void) {
         
         // Tab navigation
         if(keys.c[0].C_left || keys.c[0].L) {
-            current_tab = (current_tab - 1 + TAB_COUNT) % TAB_COUNT;
+            current_tab = (Tab)((current_tab - 1 + TAB_COUNT) % TAB_COUNT);
         }
         if(keys.c[0].C_right || keys.c[0].R) {
-            current_tab = (current_tab + 1) % TAB_COUNT;
+            current_tab = (Tab)((current_tab + 1) % TAB_COUNT);
         }
         
         // Exit on Start
