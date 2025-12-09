@@ -2,6 +2,7 @@
 #include <stdio.h>
 #include <string.h>
 #include <math.h>
+#include <stdint.h>
 
 // Memory map addresses for N64 hardware info
 #define MI_VERSION_REG  0xA4300004
@@ -91,18 +92,9 @@ const char* get_cpu_revision(uint32_t prid) {
 
 // Detect memory size
 uint32_t detect_memory_size(void) {
-    volatile uint32_t *test_addr = (uint32_t *)0x80400000;
-    uint32_t original, test_pattern = 0xDEADBEEF;
-    
-    original = *test_addr;
-    *test_addr = test_pattern;
-    data_cache_hit_writeback_invalidate(test_addr, 4);
-    
-    if (*test_addr == test_pattern) {
-        *test_addr = original;
-        return 8;
-    }
-    return 4;
+    // Use libdragon's safe memory detection
+    // Returns size in bytes, convert to MB
+    return get_memory_size() / (1024 * 1024);
 }
 
 // Get TV type
@@ -186,18 +178,29 @@ void measure_memory_bandwidth(void) {
     
     last_measure_frame = measurements.frames_counted;
     
-    // Simple bandwidth estimation based on RDRAM specs
-    // RDRAM runs at 250MHz with 9-bit bus (8 data + 1 parity)
-    // Theoretical: 250MHz * 1 byte = 250 MB/s, but effective is ~560 MB/s burst
-    // We'll do a simple memory copy test
+    // Allocate dedicated uncached buffers to avoid stomping code/data
+    // Use uncached memory (KSEG1: 0xA0000000) to avoid cache effects
+    #define BW_TEST_SIZE 4096  // 4KB test
+    static uint32_t src_buffer[BW_TEST_SIZE / 4] __attribute__((aligned(16)));
+    static uint32_t dst_buffer[BW_TEST_SIZE / 4] __attribute__((aligned(16)));
     
-    volatile uint32_t *src = (uint32_t *)0x80000000;
-    volatile uint32_t *dst = (uint32_t *)0x80100000;
+    // Use uncached addresses to bypass cache
+    volatile uint32_t *src = (volatile uint32_t *)((uintptr_t)src_buffer | 0x20000000);
+    volatile uint32_t *dst = (volatile uint32_t *)((uintptr_t)dst_buffer | 0x20000000);
+    
+    // Initialize source buffer
+    for (int i = 0; i < BW_TEST_SIZE / 4; i++) {
+        src[i] = i;
+    }
+    
+    // Flush data cache to ensure clean test
+    data_cache_hit_writeback_invalidate(src_buffer, BW_TEST_SIZE);
+    data_cache_hit_writeback_invalidate(dst_buffer, BW_TEST_SIZE);
     
     uint32_t count_start = read_c0_count();
     
-    // Copy 1KB
-    for (int i = 0; i < 256; i++) {
+    // Copy 4KB using uncached access (tests actual RDRAM speed)
+    for (int i = 0; i < BW_TEST_SIZE / 4; i++) {
         dst[i] = src[i];
     }
     
@@ -205,10 +208,12 @@ void measure_memory_bandwidth(void) {
     uint32_t cycles = (count_end - count_start) * 2;
     
     // Calculate bandwidth: bytes / (cycles / CPU_freq)
-    float time_seconds = (float)cycles / (measurements.cpu_freq_current * 1000000.0f);
-    float bandwidth_mbps = (1024.0f / time_seconds) / (1024.0f * 1024.0f);
-    
-    measurements.rdram_bandwidth = (uint32_t)bandwidth_mbps;
+    if (measurements.cpu_freq_current > 0) {
+        float time_seconds = (float)cycles / (measurements.cpu_freq_current * 1000000.0f);
+        float bandwidth_mbps = (BW_TEST_SIZE / time_seconds) / (1024.0f * 1024.0f);
+        measurements.rdram_bandwidth = (uint32_t)bandwidth_mbps;
+    }
+    #undef BW_TEST_SIZE
 }
 
 // Measure current video scanline
@@ -221,14 +226,25 @@ void measure_video_scanline(void) {
 void calculate_fps(void) {
     static uint32_t last_fps_frame = 0;
     static uint32_t last_fps_count = 0;
+    static int first_sample = 1;
+    
+    // Initialize on first call
+    if (first_sample && measurements.frames_counted >= 60) {
+        last_fps_frame = measurements.frames_counted;
+        last_fps_count = read_c0_count();
+        first_sample = 0;
+        return;
+    }
     
     if (measurements.frames_counted - last_fps_frame >= 60) {
         uint32_t current_count = read_c0_count();
         uint32_t count_delta = current_count - last_fps_count;
         uint32_t cpu_cycles = count_delta * 2;
         
-        float time_seconds = (float)cpu_cycles / (measurements.cpu_freq_current * 1000000.0f);
-        measurements.actual_fps = 60.0f / time_seconds;
+        if (measurements.cpu_freq_current > 0) {
+            float time_seconds = (float)cpu_cycles / (measurements.cpu_freq_current * 1000000.0f);
+            measurements.actual_fps = 60.0f / time_seconds;
+        }
         
         last_fps_frame = measurements.frames_counted;
         last_fps_count = current_count;
@@ -524,6 +540,7 @@ int main(void) {
     measurements.cpu_freq_max = 93.75f;
     measurements.frames_counted = 0;
     measurements.rdram_bandwidth = 500; // Initial estimate
+    measurements.actual_fps = get_tv_refresh_rate(); // Initialize to expected refresh rate
     
     Tab current_tab = TAB_CPU;
     
