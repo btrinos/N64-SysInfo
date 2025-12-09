@@ -4,6 +4,8 @@
 #include <math.h>
 #include <stdint.h>
 
+#include "cpu_revision.h"
+
 // Memory map addresses for N64 hardware info
 #define MI_VERSION_REG  0xA4300004
 #define MI_INTR_REG     0xA4300008
@@ -77,17 +79,6 @@ static inline uint32_t read_c0_prid(void) {
     uint32_t prid;
     asm volatile("mfc0 %0, $15" : "=r"(prid));
     return prid;
-}
-
-// Detect CPU revision
-const char* get_cpu_revision(uint32_t prid) {
-    uint8_t rev = prid & 0xFF;
-    switch(rev) {
-        case 0x00: return "VR4300 Rev 1.0";
-        case 0x01: return "VR4300 Rev 2.0";
-        case 0x02: return "VR4300 Rev 3.0";
-        default: return "VR4300 Unknown";
-    }
 }
 
 // Detect memory size
