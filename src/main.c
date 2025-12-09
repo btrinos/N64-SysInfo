@@ -235,17 +235,19 @@ void calculate_fps(void) {
         first_sample = 0;
         return;
     }
-    
-    if (measurements.frames_counted - last_fps_frame >= 60) {
+
+    uint32_t frames_elapsed = measurements.frames_counted - last_fps_frame;
+
+    if (frames_elapsed >= 60) {
         uint32_t current_count = read_c0_count();
         uint32_t count_delta = current_count - last_fps_count;
         uint32_t cpu_cycles = count_delta * 2;
-        
-        if (measurements.cpu_freq_current > 0) {
+
+        if (measurements.cpu_freq_current > 0 && frames_elapsed > 0) {
             float time_seconds = (float)cpu_cycles / (measurements.cpu_freq_current * 1000000.0f);
-            measurements.actual_fps = 60.0f / time_seconds;
+            measurements.actual_fps = frames_elapsed / time_seconds;
         }
-        
+
         last_fps_frame = measurements.frames_counted;
         last_fps_count = current_count;
     }
